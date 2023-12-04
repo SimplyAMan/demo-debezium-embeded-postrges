@@ -37,6 +37,4 @@ out/
 .vscode/
 
 data/master-db/data/*
-!data/master-db/data/README.md
 data/service-db/data/*
-!data/service-db/data/README.md
