@@ -1,0 +1,51 @@
+version: '3.4'
+
+services:
+  service-db:
+    image: postgres:13.4
+    hostname: postgres-13.4
+    container_name: 'service-db'
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: db
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+    ports:
+      - '5433:5432'
+    volumes:
+      - ./data/service-db/data:/var/lib/postgresql/data
+      # copy the sql script to create tables
+      - ./data/service-db/sql/schema.sql:/docker-entrypoint-initdb.d/create_tables.sql
+    networks:
+      - lan
+
+
+  master-db:
+    image: postgres:13.4
+    hostname: postgres-13.4
+    container_name: 'master-db'
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: db
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+    ports:
+      - '5434:5432'
+    volumes:
+      - ./data/master-db/data:/var/lib/postgresql/data
+      # copy the sql script to create tables
+      - ./data/master-db/sql/schema.sql:/docker-entrypoint-initdb.d/create_tables.sql
+    networks:
+      - lan
+    command: [ "postgres", "-c", "wal_level=logical" ]
+
+networks:
+  lan:
