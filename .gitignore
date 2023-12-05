@@ -38,3 +38,7 @@ out/
 
 data/master-db/data/*
 data/service-db/data/*
+data/export4master/*
+!data/export4master/insert_documents.sql
+
+logs/*

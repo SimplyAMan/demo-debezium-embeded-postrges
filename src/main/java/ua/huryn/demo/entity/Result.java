@@ -23,6 +23,7 @@ public class Result {
     private Date created;
     @Column(name="created")
     private Date createdNew;
+    private String node;
 
     public Result(Long documentId, Date created) {
         this.documentId = documentId;
