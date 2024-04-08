@@ -14,15 +14,18 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import ua.huryn.demo.entity.Result;
-import ua.huryn.demo.repository.ResultRepository;
+import org.springframework.transaction.annotation.Transactional;
+import ua.huryn.demo.config.DebeziumConnectorProperties;
+import ua.huryn.demo.dto.OutboxDTO;
+import ua.huryn.demo.repository.OutboxRepository;
+import ua.huryn.demo.service.OutboxService;
 import ua.huryn.demo.utils.Operation;
 
+import java.sql.Timestamp;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import static io.debezium.data.Envelope.FieldName.*;
 import static java.util.stream.Collectors.toMap;
@@ -31,19 +34,21 @@ import static java.util.stream.Collectors.toMap;
 @Component
 public class CDCListener {
     private final Executor executor = Executors.newSingleThreadExecutor();
-    private EmbeddedEngine engine;
+    private final EmbeddedEngine engine;
 
     private final ObjectMapper objectMapper;
-    private final ResultRepository repository;
+    private final OutboxService outboxService;
+    private final DebeziumConnectorProperties properties;
 
-    private CDCListener(Configuration connector, ObjectMapper objectMapper, ResultRepository repository) {
+    private CDCListener(Configuration connector, ObjectMapper objectMapper, OutboxService outboxService, DebeziumConnectorProperties properties) {
         this.engine = EmbeddedEngine
                 .create()
                 .using(connector)
                 .notifying(this::handleEvent)
                 .build();
         this.objectMapper = objectMapper;
-        this.repository = repository;
+        this.outboxService = outboxService;
+        this.properties = properties;
     }
 
     /**
@@ -60,15 +65,12 @@ public class CDCListener {
         if(sourceRecordValue != null) {
             Operation operation = Operation.forCode((String) sourceRecordValue.get(OPERATION));
 
-            //Only if this is a transactional operation.
-            if(operation != Operation.READ) {
+            //Only if this is an insert
+            if(operation == Operation.CREATE) {
 
                 Map<String, Object> message;
-                String record = AFTER; //For Update & Insert operations.
+                String record = AFTER;
 
-                if (operation == Operation.DELETE) {
-                    record = BEFORE; //For Delete operations.
-                }
                 //Build a map with all row data received.
                 Struct struct = (Struct) sourceRecordValue.get(record);
                 message = struct.schema().fields().stream()
@@ -79,9 +81,9 @@ public class CDCListener {
                 log.info("Data Changed: {} with Operation: {}", message, operation.name());
 
                 objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-                Result result = objectMapper.convertValue(message, Result.class);
-                log.info("result: {}", result);
-                repository.save(result);
+                OutboxDTO outboxDTO = objectMapper.convertValue(message, OutboxDTO.class);
+                log.info("outbox: {}", outboxDTO);
+                outboxService.setStatusById("sent", new Timestamp(new Date().getTime()), outboxDTO.getOutboxId());
             }
         }
     }

@@ -21,6 +21,9 @@ public class DebeziumConnectorProperties {
     @Value("${debezium.datasource.port}")
     private String port;
 
+    @Value(("${debezium.datasource.url}"))
+    private String url;
+
     @Value("${debezium.datasource.username}")
     private String username;
 
